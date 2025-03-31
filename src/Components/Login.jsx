@@ -1,30 +1,40 @@
-import React, { useState } from "react";
+import React from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Link, useNavigate } from "react-router-dom";
+import { toast, ToastContainer } from "react-toastify";
+import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
-import { Link,useNavigate } from "react-router-dom";
-import { toast, ToastContainer } from 'react-toastify';
-import "react-toastify/dist/ReactToastify.css";
+import * as z from "zod";
+
+const schema = z.object({
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
 
 const AuthPage = ({ isLogin }) => {
-  const [formData, setFormData] = useState({ uid: "", password: "" });
   const navigate = useNavigate();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({ resolver: zodResolver(schema) });
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const endpoint = isLogin ? "https://task-backend-ureu.onrender.com/api/login" : "https://task-backend-ureu.onrender.com/api/register";
-    try {
-      const response = await axios.post(endpoint, formData);
-      console.log(response.data)
-      toast.success(response.data.message);
-      localStorage.setItem("token",response.data.token);
+  const mutation = useMutation({
+    mutationFn: async (data) => {
+      const endpoint = isLogin ? "https://task-backend-ureu.onrender.com/api/login" : "https://task-backend-ureu.onrender.com/api/register";
+      const response = await axios.post(endpoint, data);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message);
+      localStorage.setItem("token", data.token);
       if (isLogin) navigate("/dashboard");
-    } catch (error) {
-        toast.error("Error: " + error.response?.data?.message || "Request failed");
-    }
-  };
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || "Request failed");
+    },
+  });
 
   return (
     <div className="flex items-center justify-center h-screen">
@@ -32,27 +42,24 @@ const AuthPage = ({ isLogin }) => {
         <h2 className="text-center text-xl font-bold mb-4">
           {isLogin ? "Welcome back!" : "Create an account"}
         </h2>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(mutation.mutate)}>
           <input
-            type="text"
-            name="uid"
-            placeholder="UID"
-            value={formData.uid}
-            onChange={handleChange}
+            type="email"
+            {...register("email")}
+            placeholder="Email"
             className="w-full p-2 border rounded mb-2"
           />
+          <p className="text-red-500 text-sm">{errors.email?.message}</p>
+
           <input
             type="password"
-            name="password"
+            {...register("password")}
             placeholder="Password"
-            value={formData.password}
-            onChange={handleChange}
             className="w-full p-2 border rounded mb-2"
           />
-          <button
-            type="submit"
-            className="w-full bg-blue-900 text-white p-2 rounded"
-          >
+          <p className="text-red-500 text-sm">{errors.password?.message}</p>
+
+          <button type="submit" className="w-full bg-blue-900 text-white p-2 rounded">
             {isLogin ? "Login" : "Register"}
           </button>
         </form>
